@@ -12,17 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package net
+package compress
 
-import (
-	"github.com/gucooing/weiwei/pkg/util/compress"
-	"github.com/gucooing/weiwei/pkg/util/crypt"
-)
+type None struct{}
 
-type Conn interface {
-	Read() (n int, b []byte, err error)
-	Close() error
+func (None) Compress(src []byte) ([]byte, error) {
+	return src, nil
+}
 
-	SetCrypt(crypt crypt.Crypt)
-	SetCompress(compress compress.Compress)
+func (None) Decompress(src []byte) ([]byte, error) {
+	return src, nil
 }

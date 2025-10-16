@@ -59,17 +59,13 @@ func NewService() (*Service, error) {
 	s.weiListener = wln
 
 	slog.Debugf("new weicLoginCrypt...")
-	var crt crypt.Crypt
-	if config.Server.WeicLogin == nil {
-		crt, err = crypt.NewCrypt(crypt.CryptTypeNone, nil)
-	} else {
-		crt, err = crypt.NewCrypt(crypt.CryptTypeRsa, config.Server.WeicLogin.RsaPrivateKey)
+	if config.Server.WeicLogin != nil {
+		s.weicLoginCrypt, err = crypt.NewCrypt(crypt.CryptTypeRsa, config.Server.WeicLogin.RsaPrivateKey)
+		if err != nil {
+			slog.Tracef("new weicLoginCrypt error:%v", err)
+			return nil, err
+		}
 	}
-	if err != nil {
-		slog.Tracef("new weicLoginCrypt error:%v", err)
-		return nil, err
-	}
-	s.weicLoginCrypt = crt
 	slog.Debugf("new weicLoginCrypt success")
 
 	slog.Debugf("new multiListener...")

@@ -18,8 +18,6 @@ import (
 	"bufio"
 	"encoding/binary"
 	"net"
-
-	"github.com/gucooing/weiwei/pkg/util/crypt"
 )
 
 type TCPListener struct {
@@ -38,13 +36,15 @@ func NewTCPListener(address string) (*TCPListener, error) {
 }
 
 type TCPConn struct {
-	conn  net.Conn
-	buf   *bufio.Reader
-	crypt crypt.Crypt
+	*baseConn
+	conn net.Conn
+	buf  *bufio.Reader
 }
 
 func (l *TCPListener) Accept() (Conn, error) {
-	c := new(TCPConn)
+	c := &TCPConn{
+		baseConn: newBaseConn(),
+	}
 	conn, err := l.Listener.Accept()
 	if err != nil {
 		return nil, err
@@ -73,6 +73,10 @@ func (c *TCPConn) Read() (n int, b []byte, err error) {
 	if err != nil {
 		return
 	}
+	b, err = c.compress.Decompress(b)
+	if err != nil {
+		return
+	}
 	b, err = c.crypt.Decrypt(b)
 	if err != nil {
 		return
@@ -86,8 +90,4 @@ func (c *TCPConn) Close() error {
 		c.conn.Close()
 	}
 	return nil
-}
-
-func (c *TCPConn) SetCrypt(crypt crypt.Crypt) {
-	c.crypt = crypt
 }

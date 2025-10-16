@@ -19,10 +19,24 @@ import (
 	"github.com/gucooing/weiwei/pkg/util/crypt"
 )
 
-type Conn interface {
-	Read() (n int, b []byte, err error)
-	Close() error
+type baseConn struct {
+	crypt    crypt.Crypt
+	compress compress.Compress
+}
 
-	SetCrypt(crypt crypt.Crypt)
-	SetCompress(compress compress.Compress)
+func newBaseConn() *baseConn {
+	b := &baseConn{
+		crypt:    crypt.CryptNone,
+		compress: compress.CompressNone,
+	}
+
+	return b
+}
+
+func (b *baseConn) SetCrypt(crypt crypt.Crypt) {
+	b.crypt = crypt
+}
+
+func (b *baseConn) SetCompress(compress compress.Compress) {
+	b.compress = compress
 }

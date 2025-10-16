@@ -12,41 +12,39 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package crypt
+package compress
 
 import (
 	"errors"
 )
 
 var (
-	ErrCryptTypeUn = errors.New("crypt type unknown")
-	CryptNone      = &None{}
+	CompressNone = &None{}
+
+	ErrCompressTypeNu = errors.New(`compress type nu`)
 )
 
-type Crypt interface {
-	Encryption(data []byte) (encrypted []byte, err error)
-	Decrypt(encrypted []byte) (decrypted []byte, err error)
+type Compress interface {
+	Compress(src []byte) ([]byte, error)
+	Decompress(src []byte) ([]byte, error)
 }
 
-type CryptType string
+type CompressType string
 
 const (
-	CryptTypeNone CryptType = "none"
-	CryptTypeRsa  CryptType = "rsa"
-
-	// CryptTypeXor Only used after security verification
-	CryptTypeXor CryptType = "xor"
+	CompressTypeNone   CompressType = "none"
+	CompressTypeGzip   CompressType = "gzip"
+	CompressTypeSnappy CompressType = "snappy"
+	CompressTypeZlib   CompressType = "zlib"
+	CompressTypeBrotli CompressType = "brotli"
+	CompressTypeLzo    CompressType = "lzo"
 )
 
-func NewCrypt(cryptType CryptType, conf interface{}) (Crypt, error) {
-	switch cryptType {
-	case CryptTypeNone:
-		return CryptNone, nil
-	case CryptTypeRsa:
-		return newCryptRsa(conf)
-	case CryptTypeXor:
-		return newCryptXor(conf)
+func NewCompress(compressType CompressType) (Compress, error) {
+	switch compressType {
+	case CompressTypeNone:
+		return CompressNone, nil
 	default:
-		return nil, ErrCryptTypeUn
+		return nil, ErrCompressTypeNu
 	}
 }

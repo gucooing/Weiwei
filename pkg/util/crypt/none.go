@@ -16,10 +16,6 @@ package crypt
 
 type None struct{}
 
-func newCryptNone(conf interface{}) (Crypt, error) {
-	return &None{}, nil
-}
-
 func (n None) Encryption(data []byte) (encrypted []byte, err error) {
 	return data, nil
 }
