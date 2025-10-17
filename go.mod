@@ -4,6 +4,7 @@ go 1.25.1
 
 require (
 	github.com/goccy/go-yaml v1.18.0
+	github.com/golang/snappy v1.0.0
 	github.com/gookit/slog v0.6.0
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/spf13/cobra v1.10.1

@@ -19,5 +19,6 @@ import (
 )
 
 type Verifier interface {
+	SetVerifyLogin(req *msg.LoginReq)
 	VerifyLogin(req *msg.LoginReq) error
 }

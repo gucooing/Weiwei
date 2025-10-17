@@ -16,14 +16,27 @@ package server
 
 import (
 	"context"
+	"errors"
+	"math/rand"
+	"time"
 
 	"github.com/gookit/slog"
 
 	"github.com/gucooing/weiwei/pkg/auth"
 	"github.com/gucooing/weiwei/pkg/config"
+	"github.com/gucooing/weiwei/pkg/env"
 	"github.com/gucooing/weiwei/pkg/msg"
 	"github.com/gucooing/weiwei/pkg/net"
 	"github.com/gucooing/weiwei/pkg/util/crypt"
+)
+
+const (
+	connReadTimeout time.Duration = 10 * time.Second
+)
+
+var (
+	ErrWeicLoginTime = errors.New("weic login timeout")
+	ErrUnknownClient = errors.New("unknown client")
 )
 
 type Service struct {
@@ -37,9 +50,6 @@ type Service struct {
 
 	// multiListener business listener
 	multiListener *net.MultiListener
-
-	// weicLoginCrypt weic login crypt
-	weicLoginCrypt crypt.Crypt
 
 	// weicLoginVerifier weic login auth
 	weicLoginVerifier auth.Verifier
@@ -57,16 +67,6 @@ func NewService() (*Service, error) {
 	}
 	slog.Debugf("network:%s address:%s new weiListener success", config.Server.WeiNet.Network, config.Server.WeiNet.Address)
 	s.weiListener = wln
-
-	slog.Debugf("new weicLoginCrypt...")
-	if config.Server.WeicLogin != nil {
-		s.weicLoginCrypt, err = crypt.NewCrypt(crypt.CryptTypeRsa, config.Server.WeicLogin.RsaPrivateKey)
-		if err != nil {
-			slog.Tracef("new weicLoginCrypt error:%v", err)
-			return nil, err
-		}
-	}
-	slog.Debugf("new weicLoginCrypt success")
 
 	slog.Debugf("new multiListener...")
 
@@ -100,25 +100,66 @@ func (svr *Service) mainHandle() {
 			slog.Printf("server service weiListener accept err:%v", err)
 			return
 		}
-		conn.SetCrypt(svr.weicLoginCrypt)
-		go svr.loginWeic(conn)
+		conn.SetCrypt(config.Server.WeicLogin.Crypt)
+		go func(conn net.Conn) {
+			lerr := svr.newConn(conn)
+			if lerr != nil {
+				conn.Close()
+				slog.Errorf("addr:%s new conn  err:%v", conn.RemoteAddr().String(), lerr)
+			}
+		}(conn)
 	}
 }
 
-func (svr *Service) loginWeic(conn net.Conn) {
-	slog.Debugf("login weic")
+func (svr *Service) newConn(conn net.Conn) error {
+	ctx := context.Background()
+	loginCtx, cancel := context.WithTimeout(ctx, connReadTimeout)
+	defer cancel()
+
+	select {
+	case <-loginCtx.Done():
+		ctx.Err()
+		return ErrWeicLoginTime
+	default:
+		rawMsg, err := msg.ReadMsg(conn)
+		if err != nil {
+			return err
+		}
+		switch m := rawMsg.(type) {
+		case *msg.LoginReq: // new weic
+			return svr.loginWeic(conn, m)
+		default:
+			return ErrUnknownClient
+		}
+	}
+
+}
+
+func (svr *Service) loginWeic(conn net.Conn, loginReq *msg.LoginReq) error {
 	// auth
-	rawMsg, err := net.ReadMsg(conn)
+	if err := config.Server.Auth.Verifier.VerifyLogin(loginReq); err != nil {
+		return err
+	}
+	slog.Debugf("addr:%s loginReq version:%s token:%s",
+		conn.RemoteAddr().String(), loginReq.Version, loginReq.LoginKey)
+	// new weic
+	cl := NewControl(conn)
+	loginRsp := &msg.LoginRsp{
+		Version: env.Version,
+		Seed:    rand.Int63n(time.Now().UnixNano() ^ cl.runId),
+		RunId:   cl.runId,
+	}
+	cry, err := crypt.NewCrypt(crypt.CryptTypeXor, loginRsp.Seed)
 	if err != nil {
-		conn.Close()
-		slog.Debugf("login weic read msg err:%v", err)
-		return
+		return err
 	}
-	loginReq, ok := rawMsg.(*msg.LoginReq)
-	if !ok {
-		conn.Close()
-		slog.Debugf("login weic read msg no loginReq")
-		return
+	defer conn.SetCrypt(cry)
+	slog.Debugf("addr:%s loginRsp version:%s runId:%v seed:%v",
+		conn.RemoteAddr().String(), loginRsp.Version, loginRsp.RunId, loginRsp.Seed)
+	_, err = msg.WriteMsg(conn, loginRsp)
+	if err != nil {
+		return err
 	}
-	slog.Debugf("login weic loginReq:%v", loginReq)
+	go cl.Start()
+	return nil
 }

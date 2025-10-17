@@ -19,5 +19,5 @@ var (
 	Git     = "https://github.com/gucooing/Weiwei"
 	Name    = "Weiwei"
 	WeiS    = "weis"
-	WeiC    = "weiC"
+	WeiC    = "weic"
 )

@@ -14,13 +14,24 @@
 
 package v1
 
+import (
+	"github.com/gucooing/weiwei/pkg/auth"
+)
+
 type AuthConfig struct {
-	Method AuthMethod `json:"method" yaml:"method" toml:"method" default:"token"`
-	Token  string     `json:"token" toml:"token" yaml:"token"`
+	Method   AuthMethod    `json:"method" yaml:"method" toml:"method" default:"token"`
+	Token    string        `json:"token" toml:"token" yaml:"token"`
+	Verifier auth.Verifier `json:"-" toml:"-" yaml:"-"`
 }
 
 func (a *AuthConfig) Init() {
 	if a == nil {
 		panic("nil auth")
+	}
+	switch a.Method {
+	case AuthMethodToken:
+		a.Verifier = auth.NewToken(a.Token)
+	default:
+		panic("unknown auth method")
 	}
 }

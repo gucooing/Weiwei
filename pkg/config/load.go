@@ -26,6 +26,7 @@ import (
 
 var (
 	Server *v1.ServerConfig
+	Client *v1.ClientConfig
 )
 
 func LoadConfig(b []byte, c any) error {
@@ -55,5 +56,18 @@ func LoadServerConfig(path string) error {
 	if err := LoadConfig(buff, Server); err != nil {
 		return err
 	}
+	Server.Init()
 	return nil
+}
+
+func LoadClientConfig(path string) error {
+	buff, err := loadConfFile(path)
+	if err != nil {
+		return err
+	}
+	Client = new(v1.ClientConfig)
+	if err := LoadConfig(buff, Client); err != nil {
+		return err
+	}
+	return Client.Init()
 }

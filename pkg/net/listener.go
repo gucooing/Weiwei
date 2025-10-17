@@ -17,3 +17,13 @@ package net
 type Listener interface {
 	Accept() (Conn, error)
 }
+
+func Listen(network, address string) (listener Listener, err error) {
+	switch network {
+	case "tcp", "tcp4", "tcp6":
+		listener, err = NewTCPListener(network, address)
+	default:
+		return nil, ErrNetWorkNu
+	}
+	return
+}

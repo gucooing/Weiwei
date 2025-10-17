@@ -12,12 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package net
+package util
 
 import (
-	"errors"
+	"sync/atomic"
 )
 
+func EmptyDefault[T comparable](k T, v T) T {
+	var zero T
+	if k == zero {
+		return v
+	}
+	return k
+}
+
+func Xor(data []byte, key []byte) {
+	for i := 0; i < len(data); i++ {
+		data[i] ^= key[i%len(key)]
+	}
+}
+
 var (
-	ErrNetWorkNu = errors.New("network unknown")
+	runId = int64(0)
 )
+
+func NewRunId() int64 {
+	return atomic.AddInt64(&runId, 1)
+}

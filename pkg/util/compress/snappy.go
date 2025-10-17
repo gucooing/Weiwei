@@ -12,12 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package net
+package compress
 
 import (
-	"errors"
+	"github.com/golang/snappy"
 )
 
-var (
-	ErrNetWorkNu = errors.New("network unknown")
-)
+type Snappy struct{}
+
+func (*Snappy) Compress(src []byte) ([]byte, error) {
+	data := snappy.Encode(nil, src)
+	return data, nil
+}
+
+func (*Snappy) Decompress(src []byte) ([]byte, error) {
+	return snappy.Decode(nil, src)
+}

@@ -19,7 +19,8 @@ import (
 )
 
 var (
-	CompressNone = &None{}
+	CompressNone   = &None{}
+	CompressSnappy = &Snappy{}
 
 	ErrCompressTypeNu = errors.New(`compress type nu`)
 )
@@ -44,6 +45,8 @@ func NewCompress(compressType CompressType) (Compress, error) {
 	switch compressType {
 	case CompressTypeNone:
 		return CompressNone, nil
+	case CompressTypeSnappy:
+		return CompressSnappy, nil
 	default:
 		return nil, ErrCompressTypeNu
 	}

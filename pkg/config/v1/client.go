@@ -12,22 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package net
+package v1
 
 import (
-	"net"
+	"errors"
 
-	"github.com/gucooing/weiwei/pkg/util/compress"
+	"github.com/gucooing/weiwei/pkg/util"
 	"github.com/gucooing/weiwei/pkg/util/crypt"
 )
 
-type Conn interface {
-	Read() (n int, b []byte, err error)
-	Write(b []byte) (n int, err error)
-	Close() error
-	LocalAddr() net.Addr
-	RemoteAddr() net.Addr
+type ClientConfig struct {
+	Log       *Log        `json:"log" yaml:"log" toml:"log"`
+	Auth      *AuthConfig `json:"auth" toml:"auth" yaml:"auth"`
+	WeisNet   *Net        `json:"weisNet" yaml:"weisNet" toml:"weisNet"`
+	WeicLogin *WeicLogin  `json:"weicLogin" yaml:"weicLogin" toml:"weicLogin"`
+}
 
-	SetCrypt(crypt crypt.Crypt)
-	SetCompress(compress compress.Compress)
+func (c *ClientConfig) Init() error {
+	if c == nil {
+		return errors.New("config is nil")
+	}
+	c.Log.Init()
+	c.Auth.Init()
+	c.WeicLogin = util.EmptyDefault(c.WeicLogin, &WeicLogin{CryptType: string(crypt.CryptTypeNone)})
+	c.WeisNet.Init()
+	c.WeicLogin.Init()
+
+	return nil
 }

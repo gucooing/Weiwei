@@ -14,10 +14,11 @@
 
 package net
 
-import (
-	"errors"
-)
-
-var (
-	ErrNetWorkNu = errors.New("network unknown")
-)
+func Dial(network, address string) (Conn, error) {
+	switch network {
+	case "tcp", "tcp4", "tcp6":
+		return TcpDial(network, address)
+	default:
+		return nil, ErrNetWorkNu
+	}
+}

@@ -40,3 +40,11 @@ func GetMessageByCmdId(cmdId uint16) (Message, error) {
 	}
 	return reflect.New(t).Interface(), nil
 }
+
+func GetCmdIdByMessage(msg Message) (uint16, error) {
+	cmdId, ok := cmdMsgMap[reflect.TypeOf(msg).Elem()]
+	if !ok {
+		return 0, ErrMsgCmd
+	}
+	return cmdId, nil
+}

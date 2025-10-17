@@ -14,6 +14,34 @@
 
 package v1
 
+import (
+	"fmt"
+
+	"github.com/gucooing/weiwei/pkg/util"
+	"github.com/gucooing/weiwei/pkg/util/crypt"
+)
+
 type WeicLogin struct {
-	RsaPrivateKey string `json:"rsaPrivateKey" yaml:"rsaPrivateKey" toml:"rsaPrivateKey"`
+	CryptType     string      `json:"cryptType" toml:"cryptType" yaml:"cryptType"`
+	RsaPrivateKey string      `json:"rsaPrivateKey" yaml:"rsaPrivateKey" toml:"rsaPrivateKey"`
+	Crypt         crypt.Crypt `json:"-" yaml:"-" toml:"-"`
+}
+
+func (w *WeicLogin) Init() {
+	w.CryptType = util.EmptyDefault(w.CryptType, string(crypt.CryptTypeNone))
+
+	var cry crypt.Crypt
+	var err error
+	switch crypt.CryptType(w.CryptType) {
+	case crypt.CryptTypeNone:
+		cry, err = crypt.NewCrypt(crypt.CryptTypeNone, nil)
+	case crypt.CryptTypeRsa:
+		cry, err = crypt.NewCrypt(crypt.CryptTypeRsa, w.RsaPrivateKey)
+	default:
+		panic("Config WeicLogin CryptType Unknown")
+	}
+	if err != nil {
+		fmt.Println(err)
+	}
+	w.Crypt = cry
 }

@@ -17,6 +17,7 @@ package net
 import (
 	"bufio"
 	"encoding/binary"
+	"errors"
 	"net"
 )
 
@@ -24,9 +25,9 @@ type TCPListener struct {
 	net.Listener
 }
 
-func NewTCPListener(address string) (*TCPListener, error) {
+func NewTCPListener(network, address string) (*TCPListener, error) {
 	t := new(TCPListener)
-	listener, err := net.Listen("tcp", address)
+	listener, err := net.Listen(network, address)
 	if err != nil {
 		return nil, err
 	}
@@ -37,8 +38,8 @@ func NewTCPListener(address string) (*TCPListener, error) {
 
 type TCPConn struct {
 	*baseConn
-	conn net.Conn
-	buf  *bufio.Reader
+	net.Conn
+	buf *bufio.Reader
 }
 
 func (l *TCPListener) Accept() (Conn, error) {
@@ -49,7 +50,7 @@ func (l *TCPListener) Accept() (Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.conn = conn
+	c.Conn = conn
 	c.buf = bufio.NewReader(conn)
 
 	return c, nil
@@ -61,33 +62,64 @@ var (
 
 func (c *TCPConn) Read() (n int, b []byte, err error) {
 	lenBytes := make([]byte, tcpLenSize)
-	n, err = c.buf.Read(lenBytes)
+	_, err = c.buf.Read(lenBytes)
 	if err != nil {
 		return
 	}
 	headLen := binary.BigEndian.Uint16(lenBytes)
 
-	b = make([]byte, headLen)
-
-	n, err = c.buf.Read(b)
+	buf := c.getBuffer(int(headLen))
+	defer c.putBuffer(buf)
+	_, err = c.buf.Read(buf)
 	if err != nil {
 		return
 	}
-	b, err = c.compress.Decompress(b)
+	b, err = c.BaseRead(buf)
 	if err != nil {
 		return
 	}
-	b, err = c.crypt.Decrypt(b)
-	if err != nil {
-		return
-	}
-
+	n = tcpLenSize + int(headLen)
 	return
 }
 
 func (c *TCPConn) Close() error {
-	if c.conn != nil {
-		c.conn.Close()
+	if c.Conn != nil {
+		c.Conn.Close()
 	}
 	return nil
+}
+
+func TcpDial(network, address string) (Conn, error) {
+	c := &TCPConn{
+		baseConn: newBaseConn(),
+	}
+	conn, err := net.Dial(network, address)
+	if err != nil {
+		return nil, err
+	}
+	c.Conn = conn
+	c.buf = bufio.NewReader(conn)
+
+	return c, nil
+}
+
+func (c *TCPConn) Write(b []byte) (n int, err error) {
+	b, err = c.BaseWrite(b)
+	if err != nil {
+		return 0, err
+	}
+	headLen := len(b)
+
+	if headLen > 0xFFFF {
+		return 0, errors.New("data too large")
+	}
+
+	buf := c.getBuffer(tcpLenSize + headLen)
+	defer c.putBuffer(buf)
+
+	binary.BigEndian.PutUint16(buf[:tcpLenSize], uint16(headLen))
+	copy(buf[tcpLenSize:], b)
+
+	n, err = c.Conn.Write(buf[:tcpLenSize+headLen])
+	return
 }

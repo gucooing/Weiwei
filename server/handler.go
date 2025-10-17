@@ -12,12 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package net
+package server
 
 import (
-	"errors"
+	"time"
+
+	"github.com/gookit/slog"
+
+	"github.com/gucooing/weiwei/pkg/msg"
 )
 
-var (
-	ErrNetWorkNu = errors.New("network unknown")
-)
+func (c *Control) handlerPing(rawMsg msg.Message) {
+	req := rawMsg.(*msg.PingReq)
+
+	clientTime := time.Unix(0, req.ClientTimestamp)
+	serverTime := time.Now()
+
+	_, err := msg.WriteMsg(c.conn, &msg.PingRsp{
+		ClientTimestamp: req.ClientTimestamp,
+		ServerTimestamp: serverTime.UnixNano(),
+	})
+	if err != nil {
+		slog.Errorf("runId:%v weic pingRsp write err: %s", c.runId, err.Error())
+		return
+	}
+	c.lasePing.Store(time.Now())
+	slog.Debugf("runId:%v weic ping:%s", c.runId, serverTime.Sub(clientTime).String())
+}

@@ -21,6 +21,8 @@ import (
 const (
 	loginReq = iota + 1
 	loginRsp
+	pingReq
+	pingRsp
 )
 
 func init() {
@@ -29,4 +31,6 @@ func init() {
 
 	RegisterMsg(loginReq, LoginReq{})
 	RegisterMsg(loginRsp, LoginRsp{})
+	RegisterMsg(pingReq, PingReq{})
+	RegisterMsg(pingRsp, PingRsp{})
 }

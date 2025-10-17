@@ -15,6 +15,8 @@
 package net
 
 import (
+	"sync"
+
 	"github.com/gucooing/weiwei/pkg/util/compress"
 	"github.com/gucooing/weiwei/pkg/util/crypt"
 )
@@ -22,12 +24,14 @@ import (
 type baseConn struct {
 	crypt    crypt.Crypt
 	compress compress.Compress
+	bufPool  sync.Pool
 }
 
 func newBaseConn() *baseConn {
 	b := &baseConn{
 		crypt:    crypt.CryptNone,
 		compress: compress.CompressNone,
+		bufPool:  sync.Pool{},
 	}
 
 	return b
@@ -39,4 +43,39 @@ func (b *baseConn) SetCrypt(crypt crypt.Crypt) {
 
 func (b *baseConn) SetCompress(compress compress.Compress) {
 	b.compress = compress
+}
+
+func (b *baseConn) BaseRead(data []byte) (buffer []byte, err error) {
+	buffer, err = b.compress.Decompress(data)
+	if err != nil {
+		return
+	}
+	buffer, err = b.crypt.Decrypt(buffer)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func (b *baseConn) BaseWrite(data []byte) (buffer []byte, err error) {
+	buffer, err = b.compress.Compress(data)
+	if err != nil {
+		return
+	}
+	buffer, err = b.crypt.Encryption(buffer)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func (b *baseConn) getBuffer(size int) []byte {
+	if buf, ok := b.bufPool.Get().([]byte); ok && cap(buf) >= size {
+		return buf[:size]
+	}
+	return make([]byte, size)
+}
+
+func (b *baseConn) putBuffer(buf []byte) {
+	b.bufPool.Put(buf)
 }

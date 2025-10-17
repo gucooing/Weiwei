@@ -49,7 +49,7 @@ var (
 		BashCompletionFunction:     "",
 		Deprecated:                 "",
 		Annotations:                nil,
-		Version:                    "",
+		Version:                    env.Version,
 		PersistentPreRun:           nil,
 		PersistentPreRunE:          nil,
 		PreRun:                     nil,
@@ -92,7 +92,7 @@ func initWeis(cmd *cobra.Command, args []string) error {
 	// run
 	if err := runWeis(); err != nil {
 		fmt.Println(err)
-		os.Exit(1)
+		return err
 	}
 
 	return nil

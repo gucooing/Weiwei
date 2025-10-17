@@ -19,3 +19,7 @@ type LoginReq struct {
 	Timestamp int64  `json:"timestamp,omitempty"`
 	LoginKey  string `json:"loginKey,omitempty"`
 }
+
+type PingReq struct {
+	ClientTimestamp int64 `json:"clientTimestamp,omitempty"`
+}

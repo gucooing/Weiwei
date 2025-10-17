@@ -12,12 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package net
+package backoff
 
 import (
-	"errors"
+	"time"
 )
 
-var (
-	ErrNetWorkNu = errors.New("network unknown")
-)
+func BackoffStart(f func() bool, doneChan <-chan struct{}, delay time.Duration) {
+	ticker := time.NewTicker(delay)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-doneChan:
+			return
+		default:
+		}
+
+		if f() {
+			return
+		}
+
+		ticker.Reset(delay)
+		select {
+		case <-doneChan:
+			return
+		case <-ticker.C:
+		}
+	}
+}
