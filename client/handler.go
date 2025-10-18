@@ -12,21 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package net
+package client
 
-type Listener interface {
-	Accept() (Conn, error)
-	Close() error
+import (
+	"time"
+
+	"github.com/gookit/slog"
+
+	"github.com/gucooing/weiwei/pkg/msg"
+)
+
+func (c *Control) sendPingReq() error {
+	_, err := msg.WriteMsg(c.conn, &msg.PingReq{
+		ClientTimestamp: time.Now().UnixNano(),
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func Listen(network, address string) (listener Listener, err error) {
-	switch network {
-	case "tcp", "tcp4", "tcp6":
-		listener, err = NewTCPListener(network, address)
-	case "gtcp":
-		listener, err = NewGTCPListener(network, address)
-	default:
-		return nil, ErrNetWorkNu
-	}
-	return
+func (c *Control) handlerPing(rawMsg msg.Message) {
+	rsp := rawMsg.(*msg.PingRsp)
+
+	clientTime := time.Unix(0, rsp.ClientTimestamp)
+	serverTime := time.Unix(0, rsp.ServerTimestamp)
+
+	slog.Debugf("weis ping:%s", serverTime.Sub(clientTime).String())
 }

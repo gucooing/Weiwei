@@ -46,11 +46,11 @@ func (b *baseConn) SetCompress(compress compress.Compress) {
 }
 
 func (b *baseConn) BaseRead(data []byte) (buffer []byte, err error) {
-	buffer, err = b.compress.Decompress(data)
+	unZipBuffer, err := b.compress.Decompress(data)
 	if err != nil {
 		return
 	}
-	buffer, err = b.crypt.Decrypt(buffer)
+	buffer, err = b.crypt.Decrypt(unZipBuffer)
 	if err != nil {
 		return
 	}
@@ -58,11 +58,11 @@ func (b *baseConn) BaseRead(data []byte) (buffer []byte, err error) {
 }
 
 func (b *baseConn) BaseWrite(data []byte) (buffer []byte, err error) {
-	buffer, err = b.compress.Compress(data)
+	enBuffer, err := b.crypt.Encryption(data)
 	if err != nil {
 		return
 	}
-	buffer, err = b.crypt.Encryption(buffer)
+	buffer, err = b.compress.Compress(enBuffer)
 	if err != nil {
 		return
 	}

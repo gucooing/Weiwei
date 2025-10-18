@@ -15,6 +15,7 @@
 package server
 
 import (
+	"errors"
 	"sync/atomic"
 	"time"
 
@@ -81,15 +82,21 @@ func (c *Control) keepController() {
 		return
 	}
 	backoff.BackoffStart(
-		func() bool {
-			if time.Since(c.lasePing.Load().(time.Time)) > time.Duration(config.Server.WeicTimeout)*time.Second {
+		func() error {
+			if time.Since(c.lasePing.Load().(time.Time)) >
+				time.Duration(config.Server.WeicTimeout)*time.Second {
+
 				slog.Infof("runId:%v weic timeout", c.runId)
 				c.conn.Close()
-				return true
+				return nil
 			}
-			return false
+			return errors.New("")
 		},
 		c.doneChan,
-		time.Second,
+		&backoff.ExponentialBackoff{
+			BaseInterval: 1 * time.Second,
+			MaxRetries:   0,
+			MaxInterval:  1 * time.Second,
+		},
 	)
 }

@@ -38,7 +38,7 @@ var (
 	showVersion bool
 
 	weicCmd = &cobra.Command{
-		Use:                        env.WeiS,
+		Use:                        env.WeiC,
 		Short:                      fmt.Sprintf("%s is %s's client (%s)", env.WeiC, env.Name, env.Git),
 		Example:                    fmt.Sprintf("%s --help", env.WeiC),
 		ValidArgs:                  nil,
@@ -101,7 +101,7 @@ func runWeic() error {
 	slog.Configure(func(l *slog.SugaredLogger) {
 		f := l.Formatter.(*slog.TextFormatter)
 		f.EnableColor = true
-		l.ChannelName = env.WeiS
+		l.ChannelName = env.WeiC
 		l.Level = config.Client.Log.Level
 	})
 

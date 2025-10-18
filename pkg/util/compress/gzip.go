@@ -13,3 +13,32 @@
 // limitations under the License.
 
 package compress
+
+import (
+	"bytes"
+	"compress/gzip"
+	"io"
+)
+
+type Gzip struct{}
+
+func (g Gzip) Compress(src []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	if _, err := gz.Write(src); err != nil {
+		return nil, err
+	}
+	if err := gz.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (g Gzip) Decompress(src []byte) ([]byte, error) {
+	z, err := gzip.NewReader(bytes.NewReader(src))
+	if err != nil {
+		return nil, err
+	}
+	defer z.Close()
+	return io.ReadAll(z)
+}

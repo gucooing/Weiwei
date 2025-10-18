@@ -15,28 +15,81 @@
 package backoff
 
 import (
+	"io"
+	"math"
+	"math/rand"
 	"time"
 )
 
-func BackoffStart(f func() bool, doneChan <-chan struct{}, delay time.Duration) {
+type Backoff interface {
+	Interval() time.Duration
+	NextBackoff() (time.Duration, bool)
+	Reset()
+}
+
+type ExponentialBackoff struct {
+	BaseInterval time.Duration
+	MaxRetries   int
+	MaxInterval  time.Duration
+	retryCount   int
+}
+
+func (eb *ExponentialBackoff) Interval() time.Duration {
+	return eb.BaseInterval
+}
+
+func (eb *ExponentialBackoff) NextBackoff() (time.Duration, bool) {
+	if eb.MaxRetries > 0 &&
+		eb.retryCount >= eb.MaxRetries {
+		return 0, false
+	}
+
+	if eb.MaxInterval <= 0 {
+		return eb.BaseInterval, true
+	}
+
+	delay := eb.BaseInterval * time.Duration(math.Pow(2, float64(eb.retryCount)))
+	jitter := time.Duration(rand.Float64() * 0.3 * float64(delay))
+	delay += jitter
+	if delay > eb.MaxInterval ||
+		delay <= 0 {
+		delay = eb.MaxInterval
+	}
+	eb.retryCount++
+	return delay, true
+}
+
+func (eb *ExponentialBackoff) Reset() {
+	eb.retryCount = 0
+}
+
+func BackoffStart(f func() error, doneChan <-chan struct{}, backoff Backoff) (lastErr error) {
+	delay := backoff.Interval()
+	var ok bool
 	ticker := time.NewTicker(delay)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-doneChan:
-			return
+			return io.EOF
 		default:
 		}
 
-		if f() {
-			return
+		if err := f(); err != nil {
+			lastErr = err
+		} else {
+			return nil
 		}
 
+		delay, ok = backoff.NextBackoff()
+		if !ok {
+			return lastErr
+		}
 		ticker.Reset(delay)
 		select {
 		case <-doneChan:
-			return
+			return io.EOF
 		case <-ticker.C:
 		}
 	}

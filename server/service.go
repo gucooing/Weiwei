@@ -48,9 +48,6 @@ type Service struct {
 	// weiListener service discovery listener
 	weiListener net.Listener
 
-	// multiListener business listener
-	multiListener *net.MultiListener
-
 	// weicLoginVerifier weic login auth
 	weicLoginVerifier auth.Verifier
 }
@@ -88,6 +85,7 @@ func (svr *Service) Run(ctx context.Context) {
 
 func (svr *Service) Close() {
 	slog.Debugf("server service close...")
+	svr.weiListener.Close()
 
 	slog.Debugf("server service close success")
 }

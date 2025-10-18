@@ -73,32 +73,34 @@ func (svr *Service) Close() {
 }
 
 func (svr *Service) cycleLoginWeis() {
-	backoff.BackoffStart(
-		func() bool {
+	err := backoff.BackoffStart(
+		func() error {
 			if err := svr.loginWeis(); err != nil {
-				slog.Errorf("login weis err: %v", err)
-				return false
+				slog.Debugf("login weis err: %v", err)
+				return err
 			}
-			return true
+			return nil
 		},
 		svr.ctx.Done(),
-		5*time.Second,
+		&backoff.ExponentialBackoff{
+			BaseInterval: 5 * time.Second,
+			MaxRetries:   0,
+			MaxInterval:  30 * time.Second,
+		},
 	)
+	if err != nil {
+		slog.Errorf("login weis err: %v", err)
+	}
 }
 
 func (svr *Service) loginWeis() error {
 	slog.Debugf("new weisConn...")
-	ctl, err := NewControl(svr.ctx)
+	conn, err := net.Dial(config.Client.WeisNet.Network, config.Client.WeisNet.Address)
 	if err != nil {
 		return err
 	}
-	wsc, err := net.Dial(config.Client.WeisNet.Network, config.Client.WeisNet.Address)
-	if err != nil {
-		return err
-	}
+	conn.SetCrypt(config.Client.WeicLogin.Crypt)
 	slog.Debugf("network:%s address:%s new weisConn success", config.Client.WeisNet.Network, config.Client.WeisNet.Address)
-	ctl.conn = wsc
-	ctl.conn.SetCrypt(config.Client.WeicLogin.Crypt)
 
 	// login
 	loginReq := &msg.LoginReq{
@@ -108,11 +110,11 @@ func (svr *Service) loginWeis() error {
 	}
 	config.Client.Auth.Verifier.SetVerifyLogin(loginReq)
 	slog.Debugf("token:%s start login...", loginReq.LoginKey)
-	_, err = msg.WriteMsg(ctl.conn, loginReq)
+	_, err = msg.WriteMsg(conn, loginReq)
 	if err != nil {
 		return err
 	}
-	rawMsg, err := msg.ReadMsg(ctl.conn)
+	rawMsg, err := msg.ReadMsg(conn)
 	if err != nil {
 		return err
 	}
@@ -124,12 +126,17 @@ func (svr *Service) loginWeis() error {
 	if err != nil {
 		return err
 	}
-	defer ctl.conn.SetCrypt(cry)
+	defer conn.SetCrypt(cry)
 
+	ctl, err := NewControl(conn)
+	if err != nil {
+		return err
+	}
 	slog.Debugf("loginRsp version:%s runId:%v seed:%v",
 		loginRsp.Version, loginRsp.RunId, loginRsp.Seed)
 
 	ctl.runId = loginRsp.RunId
+	ctl.seed = loginRsp.Seed
 	svr.control = ctl
 
 	go ctl.Run()

@@ -15,7 +15,7 @@
 package client
 
 import (
-	"context"
+	"errors"
 	"time"
 
 	"github.com/gookit/slog"
@@ -26,45 +26,52 @@ import (
 )
 
 type Control struct {
-	// service context
-	ctx context.Context
 	// conn and weic network conn
 	conn net.Conn
 	// runId
 	runId int64
+	// seed
+	seed int64
+	// dispatcher msg handler
+	dispatcher *msg.Dispatcher
 	// doneChan
 	doneChan chan struct{}
 }
 
-func NewControl(ctx context.Context) (*Control, error) {
+func NewControl(conn net.Conn) (*Control, error) {
 	c := &Control{
-		ctx:      ctx,
-		doneChan: make(chan struct{}),
+		conn:       conn,
+		dispatcher: msg.NewDispatcher(conn),
+		doneChan:   make(chan struct{}),
 	}
-
+	// dispatcher
+	c.dispatcher.RegisterMsg(&msg.PingRsp{}, c.handlerPing)
+	slog.Infof("new weis control")
 	return c, nil
 }
 
 func (c *Control) Run() {
 	go c.keepController()
+	go c.dispatcher.Start()
 
-	<-c.doneChan
+	<-c.dispatcher.DoneChan()
+	close(c.doneChan)
+	c.conn.Close()
+	slog.Infof("weis control done")
 }
 
 func (c *Control) keepController() {
 	backoff.BackoffStart(
-		func() bool {
-			_, err := msg.WriteMsg(c.conn, &msg.PingReq{
-				ClientTimestamp: time.Now().UnixNano(),
-			})
-			if err != nil {
-				slog.Errorf("to weis pingReq err:%s", err.Error())
-				close(c.doneChan)
-				return true
-			}
-			return false
+		func() error {
+			// TODO Try again?
+			c.sendPingReq()
+			return errors.New("")
 		},
 		c.doneChan,
-		time.Second,
+		&backoff.ExponentialBackoff{
+			BaseInterval: 1 * time.Second,
+			MaxRetries:   0,
+			MaxInterval:  1 * time.Second,
+		},
 	)
 }

@@ -20,44 +20,60 @@ import (
 	"errors"
 	"io"
 	"math"
-	"net"
+
+	"github.com/panjf2000/gnet/v2"
 )
 
-type TCPListener struct {
-	net.Listener
+type GTCPListener struct {
+	gnet.BuiltinEventEngine
+
+	connCh  chan gnet.Conn
+	closeCh chan struct{}
 }
 
-func NewTCPListener(network, address string) (*TCPListener, error) {
-	t := new(TCPListener)
-	listener, err := net.Listen(network, address)
-	if err != nil {
-		return nil, err
+func NewGTCPListener(network, address string) (*GTCPListener, error) {
+	t := &GTCPListener{
+		BuiltinEventEngine: gnet.BuiltinEventEngine{},
+		connCh:             make(chan gnet.Conn),
+		closeCh:            make(chan struct{}),
 	}
-	t.Listener = listener
+	go gnet.Run(
+		t,
+		"tcp://"+address,
+		gnet.WithMulticore(true),
+	)
 
 	return t, nil
 }
 
-func (l *TCPListener) Close() error {
-	if l.Listener != nil {
-		l.Listener.Close()
-	}
+func (l *GTCPListener) Close() error {
+	close(l.closeCh)
 	return nil
 }
 
-type TCPConn struct {
+type GTCPConn struct {
 	*baseConn
-	net.Conn
+	gnet.Conn
 	buf *bufio.Reader
 }
 
-func (l *TCPListener) Accept() (Conn, error) {
-	c := &TCPConn{
+func (l *GTCPListener) OnOpen(c gnet.Conn) (out []byte, action gnet.Action) {
+	select {
+	case <-l.closeCh:
+		return nil, gnet.Close
+	default:
+		l.connCh <- c
+		return
+	}
+}
+
+func (l *GTCPListener) Accept() (Conn, error) {
+	c := &GTCPConn{
 		baseConn: newBaseConn(),
 	}
-	conn, err := l.Listener.Accept()
-	if err != nil {
-		return nil, err
+	conn, ok := <-l.connCh
+	if !ok {
+		return nil, io.EOF
 	}
 	c.Conn = conn
 	c.buf = bufio.NewReader(conn)
@@ -65,11 +81,14 @@ func (l *TCPListener) Accept() (Conn, error) {
 	return c, nil
 }
 
-var (
-	tcpLenSize = 4
-)
+func (c *GTCPConn) Close() error {
+	if c.Conn != nil {
+		c.Conn.Close()
+	}
+	return nil
+}
 
-func (c *TCPConn) Read() (n int, b []byte, err error) {
+func (c *GTCPConn) Read() (n int, b []byte, err error) {
 	lenBytes := make([]byte, tcpLenSize)
 	if _, err = io.ReadFull(c.buf, lenBytes); err != nil {
 		return 0, nil, err
@@ -89,28 +108,7 @@ func (c *TCPConn) Read() (n int, b []byte, err error) {
 	return
 }
 
-func (c *TCPConn) Close() error {
-	if c.Conn != nil {
-		c.Conn.Close()
-	}
-	return nil
-}
-
-func TcpDial(network, address string) (Conn, error) {
-	c := &TCPConn{
-		baseConn: newBaseConn(),
-	}
-	conn, err := net.Dial(network, address)
-	if err != nil {
-		return nil, err
-	}
-	c.Conn = conn
-	c.buf = bufio.NewReader(conn)
-
-	return c, nil
-}
-
-func (c *TCPConn) Write(b []byte) (n int, err error) {
+func (c *GTCPConn) Write(b []byte) (n int, err error) {
 	bin, err := c.BaseWrite(b)
 	if err != nil {
 		return 0, err
