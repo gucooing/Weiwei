@@ -22,9 +22,9 @@ import (
 )
 
 type WeicLogin struct {
-	CryptType     string      `json:"cryptType" toml:"cryptType" yaml:"cryptType"`
-	RsaPrivateKey string      `json:"rsaPrivateKey" yaml:"rsaPrivateKey" toml:"rsaPrivateKey"`
-	Crypt         crypt.Crypt `json:"-" yaml:"-" toml:"-"`
+	CryptType string      `json:"cryptType" toml:"cryptType" yaml:"cryptType"`
+	Key       interface{} `json:"key" yaml:"key" toml:"key"`
+	Crypt     crypt.Crypt `json:"-" yaml:"-" toml:"-"`
 }
 
 func (w *WeicLogin) Init() {
@@ -35,8 +35,9 @@ func (w *WeicLogin) Init() {
 	switch crypt.CryptType(w.CryptType) {
 	case crypt.CryptTypeNone:
 		cry, err = crypt.NewCrypt(crypt.CryptTypeNone, nil)
-	case crypt.CryptTypeRsa:
-		cry, err = crypt.NewCrypt(crypt.CryptTypeRsa, w.RsaPrivateKey)
+	case crypt.CryptTypeXor:
+		key := w.Key.(float64)
+		cry, err = crypt.NewCrypt(crypt.CryptTypeXor, int64(key))
 	default:
 		panic("Config WeicLogin CryptType Unknown")
 	}

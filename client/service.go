@@ -103,12 +103,13 @@ func (svr *Service) loginWeis() error {
 	slog.Debugf("network:%s address:%s new weisConn success", config.Client.WeisNet.Network, config.Client.WeisNet.Address)
 
 	// login
-	loginReq := &msg.LoginReq{
+	timestamp := time.Now().UnixNano()
+	loginReq := &msg.CSLoginReq{
 		Version:   env.Version,
-		Timestamp: time.Now().UnixNano(),
-		LoginKey:  "",
+		Timestamp: timestamp,
+		LoginKey:  config.Client.Auth.Verifier.SetVerifyLogin(timestamp),
 	}
-	config.Client.Auth.Verifier.SetVerifyLogin(loginReq)
+
 	slog.Debugf("token:%s start login...", loginReq.LoginKey)
 	_, err = msg.WriteMsg(conn, loginReq)
 	if err != nil {
@@ -118,7 +119,7 @@ func (svr *Service) loginWeis() error {
 	if err != nil {
 		return err
 	}
-	loginRsp, ok := rawMsg.(*msg.LoginRsp)
+	loginRsp, ok := rawMsg.(*msg.SCLoginRsp)
 	if !ok {
 		return errors.New("login weis read msg no loginRsp")
 	}

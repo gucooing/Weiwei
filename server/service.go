@@ -17,7 +17,6 @@ package server
 import (
 	"context"
 	"errors"
-	"math/rand"
 	"time"
 
 	"github.com/gookit/slog"
@@ -50,6 +49,9 @@ type Service struct {
 
 	// weicLoginVerifier weic login auth
 	weicLoginVerifier auth.Verifier
+
+	// ControlManager
+	controlManager *ControlManager
 }
 
 func NewService() (*Service, error) {
@@ -64,6 +66,8 @@ func NewService() (*Service, error) {
 	}
 	slog.Debugf("network:%s address:%s new weiListener success", config.Server.WeiNet.Network, config.Server.WeiNet.Address)
 	s.weiListener = wln
+
+	s.controlManager = NewControlManager()
 
 	slog.Debugf("new multiListener...")
 
@@ -86,6 +90,7 @@ func (svr *Service) Run(ctx context.Context) {
 func (svr *Service) Close() {
 	slog.Debugf("server service close...")
 	svr.weiListener.Close()
+	svr.controlManager.Close()
 
 	slog.Debugf("server service close success")
 }
@@ -124,8 +129,14 @@ func (svr *Service) newConn(conn net.Conn) error {
 			return err
 		}
 		switch m := rawMsg.(type) {
-		case *msg.LoginReq: // new weic
+		case *msg.CSLoginReq: // new weic
 			return svr.loginWeic(conn, m)
+		case *msg.CSAddWorkConnRsp: // new work conn
+			cry, ok := svr.controlManager.GetControl(m.RunId)
+			if !ok {
+				return ErrUnknownClient
+			}
+			return cry.addWorkConn(conn, m)
 		default:
 			return ErrUnknownClient
 		}
@@ -133,18 +144,20 @@ func (svr *Service) newConn(conn net.Conn) error {
 
 }
 
-func (svr *Service) loginWeic(conn net.Conn, loginReq *msg.LoginReq) error {
+func (svr *Service) loginWeic(conn net.Conn, loginReq *msg.CSLoginReq) error {
 	// auth
-	if err := config.Server.Auth.Verifier.VerifyLogin(loginReq); err != nil {
+	if err := config.Server.Auth.Verifier.
+		VerifyLogin(loginReq.Timestamp, loginReq.LoginKey); err != nil {
 		return err
 	}
 	slog.Debugf("addr:%s loginReq version:%s token:%s",
 		conn.RemoteAddr().String(), loginReq.Version, loginReq.LoginKey)
 	// new weic
 	cl := NewControl(conn)
-	loginRsp := &msg.LoginRsp{
+
+	loginRsp := &msg.SCLoginRsp{
 		Version: env.Version,
-		Seed:    rand.Int63n(time.Now().UnixNano() ^ cl.runId),
+		Seed:    cl.seed,
 		RunId:   cl.runId,
 	}
 	cry, err := crypt.NewCrypt(crypt.CryptTypeXor, loginRsp.Seed)
@@ -158,6 +171,9 @@ func (svr *Service) loginWeic(conn net.Conn, loginReq *msg.LoginReq) error {
 	if err != nil {
 		return err
 	}
-	go cl.Start()
+	go func() {
+		defer svr.controlManager.DelControl(loginRsp.RunId)
+		cl.Start()
+	}()
 	return nil
 }

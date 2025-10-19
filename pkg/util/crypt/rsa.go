@@ -15,6 +15,7 @@
 package crypt
 
 import (
+	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
@@ -37,14 +38,12 @@ func newCryptRsa(conf interface{}) (Crypt, error) {
 	return r, nil
 }
 
-func (R RSA) Encryption(data []byte) (encrypted []byte, err error) {
-	// TODO implement me
-	panic("implement me")
+func (R *RSA) Encryption(data []byte) (encrypted []byte, err error) {
+	return rsa.EncryptPKCS1v15(rand.Reader, &R.privKey.PublicKey, data)
 }
 
-func (R RSA) Decrypt(encrypted []byte) (decrypted []byte, err error) {
-	// TODO implement me
-	panic("implement me")
+func (R *RSA) Decrypt(encrypted []byte) (decrypted []byte, err error) {
+	return rsa.DecryptPKCS1v15(rand.Reader, R.privKey, encrypted)
 }
 
 func ParsePrivKeyPem(privKeyPem []byte) (privKey *rsa.PrivateKey, err error) {

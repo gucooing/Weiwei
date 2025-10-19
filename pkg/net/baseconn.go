@@ -16,22 +16,25 @@ package net
 
 import (
 	"sync"
+	"time"
 
 	"github.com/gucooing/weiwei/pkg/util/compress"
 	"github.com/gucooing/weiwei/pkg/util/crypt"
 )
 
 type baseConn struct {
-	crypt    crypt.Crypt
-	compress compress.Compress
-	bufPool  sync.Pool
+	crypt     crypt.Crypt
+	compress  compress.Compress
+	bufPool   sync.Pool
+	createdAt time.Time
 }
 
 func newBaseConn() *baseConn {
 	b := &baseConn{
-		crypt:    crypt.CryptNone,
-		compress: compress.CompressNone,
-		bufPool:  sync.Pool{},
+		crypt:     crypt.CryptNone,
+		compress:  compress.CompressNone,
+		bufPool:   sync.Pool{},
+		createdAt: time.Now(),
 	}
 
 	return b
@@ -43,6 +46,10 @@ func (b *baseConn) SetCrypt(crypt crypt.Crypt) {
 
 func (b *baseConn) SetCompress(compress compress.Compress) {
 	b.compress = compress
+}
+
+func (b *baseConn) CreatedAt() time.Time {
+	return b.createdAt
 }
 
 func (b *baseConn) BaseRead(data []byte) (buffer []byte, err error) {

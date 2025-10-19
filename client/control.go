@@ -45,7 +45,7 @@ func NewControl(conn net.Conn) (*Control, error) {
 		doneChan:   make(chan struct{}),
 	}
 	// dispatcher
-	c.dispatcher.RegisterMsg(&msg.PingRsp{}, c.handlerPing)
+	c.dispatcher.RegisterMsg(&msg.SCPingRsp{}, c.handlerPing)
 	slog.Infof("new weis control")
 	return c, nil
 }
@@ -74,4 +74,8 @@ func (c *Control) keepController() {
 			MaxInterval:  1 * time.Second,
 		},
 	)
+}
+
+func (c *Control) AddProxy() {
+
 }

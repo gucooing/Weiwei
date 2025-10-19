@@ -19,18 +19,22 @@ import (
 )
 
 const (
-	loginReq = iota + 1
-	loginRsp
-	pingReq
-	pingRsp
+	csLoginReq = iota + 1
+	scLoginRsp
+	csPingReq
+	scPingRsp
+	scAddWorkConnReq
+	csAddWorkConnRsp
 )
 
 func init() {
 	msgCmdMap = make(map[uint16]reflect.Type)
 	cmdMsgMap = make(map[reflect.Type]uint16)
 
-	RegisterMsg(loginReq, LoginReq{})
-	RegisterMsg(loginRsp, LoginRsp{})
-	RegisterMsg(pingReq, PingReq{})
-	RegisterMsg(pingRsp, PingRsp{})
+	RegisterMsg(csLoginReq, CSLoginReq{})
+	RegisterMsg(scLoginRsp, SCLoginRsp{})
+	RegisterMsg(csPingReq, CSPingReq{})
+	RegisterMsg(scPingRsp, SCPingRsp{})
+	RegisterMsg(scAddWorkConnReq, SCAddWorkConnReq{})
+	RegisterMsg(csAddWorkConnRsp, CSAddWorkConnRsp{})
 }

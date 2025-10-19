@@ -1,5 +1,5 @@
 # Weiwei
 
-Weiwei - Intranet penetration tool that supports multi-port load balancing
+Weiwei - multi protocol intranet penetration tool
 
-薇薇 - 支持多端口均衡负载的内网穿透工具
+薇薇 - 多协议内网穿透工具

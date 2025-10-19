@@ -14,13 +14,19 @@
 
 package msg
 
-type LoginRsp struct {
+type SCLoginRsp struct {
 	Version string `json:"version,omitempty"`
 	Seed    int64  `json:"seed,omitempty"`
 	RunId   int64  `json:"runId,omitempty"`
 }
 
-type PingRsp struct {
+type SCPingRsp struct {
 	ClientTimestamp int64 `json:"clientTimestamp,omitempty"`
 	ServerTimestamp int64 `json:"serverTimestamp,omitempty"`
+}
+
+type CSAddWorkConnRsp struct {
+	RunId     int64  `json:"runId,omitempty"`
+	Timestamp int64  `json:"timestamp,omitempty"`
+	LoginKey  string `json:"loginKey,omitempty"`
 }

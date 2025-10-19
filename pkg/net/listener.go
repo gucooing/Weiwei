@@ -23,8 +23,6 @@ func Listen(network, address string) (listener Listener, err error) {
 	switch network {
 	case "tcp", "tcp4", "tcp6":
 		listener, err = NewTCPListener(network, address)
-	case "gtcp":
-		listener, err = NewGTCPListener(network, address)
 	default:
 		return nil, ErrNetWorkNu
 	}

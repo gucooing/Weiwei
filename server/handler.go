@@ -23,12 +23,12 @@ import (
 )
 
 func (c *Control) handlerPing(rawMsg msg.Message) {
-	req := rawMsg.(*msg.PingReq)
+	req := rawMsg.(*msg.CSPingReq)
 
 	clientTime := time.Unix(0, req.ClientTimestamp)
 	serverTime := time.Now()
 
-	_, err := msg.WriteMsg(c.conn, &msg.PingRsp{
+	_, err := msg.WriteMsg(c.conn, &msg.SCPingRsp{
 		ClientTimestamp: req.ClientTimestamp,
 		ServerTimestamp: serverTime.UnixNano(),
 	})
@@ -37,5 +37,5 @@ func (c *Control) handlerPing(rawMsg msg.Message) {
 		return
 	}
 	c.lasePing.Store(time.Now())
-	slog.Debugf("runId:%v weic ping:%s", c.runId, serverTime.Sub(clientTime).String())
+	slog.Tracef("runId:%v weic ping:%s", c.runId, serverTime.Sub(clientTime).String())
 }

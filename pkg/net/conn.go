@@ -16,6 +16,7 @@ package net
 
 import (
 	"net"
+	"time"
 
 	"github.com/gucooing/weiwei/pkg/util/compress"
 	"github.com/gucooing/weiwei/pkg/util/crypt"
@@ -30,4 +31,5 @@ type Conn interface {
 
 	SetCrypt(crypt crypt.Crypt)
 	SetCompress(compress compress.Compress)
+	CreatedAt() time.Time
 }

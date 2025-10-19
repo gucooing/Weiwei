@@ -14,12 +14,15 @@
 
 package msg
 
-type LoginReq struct {
+type CSLoginReq struct {
 	Version   string `json:"version,omitempty"`
 	Timestamp int64  `json:"timestamp,omitempty"`
 	LoginKey  string `json:"loginKey,omitempty"`
 }
 
-type PingReq struct {
+type CSPingReq struct {
 	ClientTimestamp int64 `json:"clientTimestamp,omitempty"`
+}
+
+type SCAddWorkConnReq struct {
 }

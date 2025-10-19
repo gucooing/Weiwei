@@ -15,12 +15,17 @@
 package server
 
 import (
+	"context"
 	"errors"
+	"math/rand"
+	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/gookit/slog"
 
+	"github.com/gucooing/weiwei/pkg/auth"
 	"github.com/gucooing/weiwei/pkg/config"
 	"github.com/gucooing/weiwei/pkg/msg"
 	"github.com/gucooing/weiwei/pkg/net"
@@ -28,21 +33,82 @@ import (
 	"github.com/gucooing/weiwei/pkg/util/backoff"
 )
 
+var (
+	ErrRepeatControl = errors.New("repeat control")
+)
+
+type ControlManager struct {
+	mu       sync.Mutex
+	contrils map[int64]*Control
+}
+
+func NewControlManager() *ControlManager {
+	cm := &ControlManager{
+		contrils: make(map[int64]*Control),
+	}
+	return cm
+}
+
+func (cm *ControlManager) AddControl(runId int64, control *Control) error {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	if _, ok := cm.contrils[runId]; ok {
+		return ErrRepeatControl
+	}
+
+	cm.contrils[runId] = control
+	return nil
+}
+
+func (cm *ControlManager) GetControl(runId int64) (*Control, bool) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cry, ok := cm.contrils[runId]
+	return cry, ok
+}
+
+func (cm *ControlManager) DelControl(runId int64) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	if cry, ok := cm.contrils[runId]; ok {
+		cry.Close()
+		delete(cm.contrils, runId)
+	}
+}
+
+func (cm *ControlManager) Close() error {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	var lastErr error
+	for _, control := range cm.contrils {
+		err := control.Close()
+		if err != nil {
+			lastErr = err
+		}
+	}
+	cm.contrils = nil
+
+	return lastErr
+}
+
 type Control struct {
 	// conn client net conn
 	conn net.Conn
-
 	// runId client id
 	runId int64
-
+	// seed
+	seed int64
 	// dispatcher msg handler
 	dispatcher *msg.Dispatcher
-
 	// lasePing lase ping time time.Time
 	lasePing atomic.Value
-
 	// doneChan
 	doneChan chan struct{}
+	// net conn pool
+	connPool net.Pooler
+	// work verifier
+	workVerifier auth.Verifier
 }
 
 func NewControl(conn net.Conn) *Control {
@@ -53,27 +119,33 @@ func NewControl(conn net.Conn) *Control {
 		lasePing:   atomic.Value{},
 		doneChan:   make(chan struct{}),
 	}
+	c.seed = rand.Int63n(time.Now().UnixNano() ^ c.runId)
 	c.lasePing.Store(time.Now())
 
 	// dispatcher
-	c.dispatcher.RegisterMsg(&msg.PingReq{}, c.handlerPing)
+	c.dispatcher.RegisterMsg(&msg.CSPingReq{}, c.handlerPing)
 
-	// keepController
-	go c.keepController()
+	// pool
+	c.connPool = net.NewConnPool(&net.Options{
+		Dialer:          c.reqAddWorkConn,
+		PoolSize:        10,
+		DialTimeout:     5 * time.Second,
+		ConnMaxLifetime: 24 * time.Hour,
+	})
+
+	c.workVerifier = auth.NewToken(strconv.FormatInt(c.seed, 10))
+
 	slog.Infof("addr:%s runId:%v new weic",
 		c.conn.RemoteAddr().String(), c.runId)
 	return c
 }
 
 func (c *Control) Start() {
+	go c.keepController()
 	go c.dispatcher.Start()
 
 	// close
 	<-c.dispatcher.DoneChan()
-	slog.Infof("addr:%s runId:%v weic stop",
-		c.conn.RemoteAddr().String(), c.runId)
-	c.conn.Close()
-
 	close(c.doneChan)
 }
 
@@ -99,4 +171,36 @@ func (c *Control) keepController() {
 			MaxInterval:  1 * time.Second,
 		},
 	)
+}
+
+func (c *Control) Close() error {
+	slog.Infof("addr:%s runId:%v weic stop",
+		c.conn.RemoteAddr().String(), c.runId)
+
+	err := c.conn.Close()
+
+	return err
+}
+
+func (c *Control) reqAddWorkConn(ctx context.Context) error {
+	err := c.dispatcher.Send(&msg.SCAddWorkConnReq{})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *Control) addWorkConn(conn net.Conn, req *msg.CSAddWorkConnRsp) error {
+	// auth
+	if err := c.workVerifier.VerifyLogin(req.Timestamp, req.LoginKey); err != nil {
+		return err
+	}
+
+	// add
+	err := c.connPool.AddConn(conn)
+	if err != nil {
+		slog.Errorf("runId:%v addWorkConn err:%v", c.runId, err)
+	}
+
+	return err
 }

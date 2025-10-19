@@ -23,7 +23,7 @@ import (
 )
 
 func (c *Control) sendPingReq() error {
-	_, err := msg.WriteMsg(c.conn, &msg.PingReq{
+	_, err := msg.WriteMsg(c.conn, &msg.CSPingReq{
 		ClientTimestamp: time.Now().UnixNano(),
 	})
 	if err != nil {
@@ -33,10 +33,10 @@ func (c *Control) sendPingReq() error {
 }
 
 func (c *Control) handlerPing(rawMsg msg.Message) {
-	rsp := rawMsg.(*msg.PingRsp)
+	rsp := rawMsg.(*msg.SCPingRsp)
 
 	clientTime := time.Unix(0, rsp.ClientTimestamp)
 	serverTime := time.Unix(0, rsp.ServerTimestamp)
 
-	slog.Debugf("weis ping:%s", serverTime.Sub(clientTime).String())
+	slog.Tracef("weis ping:%s", serverTime.Sub(clientTime).String())
 }

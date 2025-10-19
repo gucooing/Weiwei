@@ -21,12 +21,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gucooing/weiwei/pkg/msg"
 	"github.com/gucooing/weiwei/pkg/util"
 )
 
 type Token struct {
-	Token string `json:"token"`
+	Token string
 }
 
 func NewToken(token string) *Token {
@@ -36,12 +35,12 @@ func NewToken(token string) *Token {
 	return t
 }
 
-func (t *Token) SetVerifyLogin(req *msg.LoginReq) {
-	req.LoginKey = t.GetAuthKey(t.Token, req.Timestamp)
+func (t *Token) SetVerifyLogin(timestamp int64) string {
+	return t.GetAuthKey(t.Token, timestamp)
 }
 
-func (t *Token) VerifyLogin(req *msg.LoginReq) error {
-	if strings.Compare(req.LoginKey, t.GetAuthKey(t.Token, req.Timestamp)) == 0 {
+func (t *Token) VerifyLogin(timestamp int64, loginKey string) error {
+	if strings.Compare(loginKey, t.GetAuthKey(t.Token, timestamp)) == 0 {
 		return nil
 	}
 	return errors.New("invalid auth key")

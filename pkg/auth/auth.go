@@ -14,11 +14,7 @@
 
 package auth
 
-import (
-	"github.com/gucooing/weiwei/pkg/msg"
-)
-
 type Verifier interface {
-	SetVerifyLogin(req *msg.LoginReq)
-	VerifyLogin(req *msg.LoginReq) error
+	SetVerifyLogin(timestamp int64) string
+	VerifyLogin(timestamp int64, loginKey string) error
 }
