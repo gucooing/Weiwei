@@ -16,6 +16,7 @@ package server
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"time"
 
@@ -50,6 +51,9 @@ type Service struct {
 	// weicLoginVerifier weic login auth
 	weicLoginVerifier auth.Verifier
 
+	// weicLoginCrypt weic login crypt
+	weicLoginCrypt crypt.Crypt
+
 	// ControlManager
 	controlManager *ControlManager
 }
@@ -59,13 +63,28 @@ func NewService() (*Service, error) {
 	s := new(Service)
 
 	slog.Debugf("new weiListener...")
-	wln, err := net.Listen(config.Server.WeiNet.Network, config.Server.WeiNet.Address)
+	wln, err := net.Listen(config.Server.ApiNetwork, config.Server.ApiAddress)
 	if err != nil {
-		slog.Tracef("new server listen err: %v", err)
 		return nil, err
 	}
-	slog.Debugf("network:%s address:%s new weiListener success", config.Server.WeiNet.Network, config.Server.WeiNet.Address)
+	slog.Debugf("network:%s address:%s new weiListener success", config.Server.ApiNetwork, config.Server.ApiAddress)
 	s.weiListener = wln
+
+	slog.Debugf("new weicLoginVerifier...")
+	wlv, err := auth.NewVerifier(config.Server.Auth.Method, config.Server.Auth.Token)
+	if err != nil {
+		return nil, err
+	}
+	slog.Debugf("new weicLoginVerifier success")
+	s.weicLoginVerifier = wlv
+
+	slog.Debugf("new weicLoginCrypt...")
+	cry := &crypt.XOR{
+		Seed:   config.Server.Auth.XorKey,
+		XorKey: crypt.SeedNewXorKey(config.Server.Auth.XorKey),
+	}
+	slog.Debugf("weicLoginCrypt xor key hex:%s", hex.EncodeToString(cry.XorKey))
+	s.weicLoginCrypt = cry
 
 	s.controlManager = NewControlManager()
 
@@ -103,7 +122,7 @@ func (svr *Service) mainHandle() {
 			slog.Printf("server service weiListener accept err:%v", err)
 			return
 		}
-		conn.SetCrypt(config.Server.WeicLogin.Crypt)
+		conn.SetCrypt(svr.weicLoginCrypt)
 		go func(conn net.Conn) {
 			lerr := svr.newConn(conn)
 			if lerr != nil {
@@ -146,14 +165,17 @@ func (svr *Service) newConn(conn net.Conn) error {
 
 func (svr *Service) loginWeic(conn net.Conn, loginReq *msg.CSLoginReq) error {
 	// auth
-	if err := config.Server.Auth.Verifier.
+	if err := svr.weicLoginVerifier.
 		VerifyLogin(loginReq.Timestamp, loginReq.LoginKey); err != nil {
 		return err
 	}
 	slog.Debugf("addr:%s loginReq version:%s token:%s",
 		conn.RemoteAddr().String(), loginReq.Version, loginReq.LoginKey)
 	// new weic
-	cl := NewControl(conn)
+	cl, err := NewControl(conn)
+	if err != nil {
+		return err
+	}
 
 	loginRsp := &msg.SCLoginRsp{
 		Version: env.Version,

@@ -14,13 +14,5 @@
 
 package v1
 
-type Net struct {
-	Network string `json:"network" yaml:"network" toml:"network"`
-	Address string `json:"address" yaml:"address" toml:"address"`
-}
-
-func (n *Net) Init() {
-	if n == nil {
-		panic("nil net")
-	}
+type Proxy struct {
 }

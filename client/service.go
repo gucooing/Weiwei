@@ -16,11 +16,13 @@ package client
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"time"
 
 	"github.com/gookit/slog"
 
+	"github.com/gucooing/weiwei/pkg/auth"
 	"github.com/gucooing/weiwei/pkg/config"
 	"github.com/gucooing/weiwei/pkg/env"
 	"github.com/gucooing/weiwei/pkg/msg"
@@ -36,11 +38,31 @@ type Service struct {
 	cancel context.CancelFunc
 	// control
 	control *Control
+	// weicLoginVerifier weic login auth
+	weicLoginVerifier auth.Verifier
+	// weicLoginCrypt weic login crypt
+	weicLoginCrypt crypt.Crypt
 }
 
 func NewService() (*Service, error) {
 	slog.Debugf("new client service...")
 	s := &Service{}
+
+	slog.Debugf("new weicLoginVerifier...")
+	wlv, err := auth.NewVerifier(config.Client.Auth.Method, config.Client.Auth.Token)
+	if err != nil {
+		return nil, err
+	}
+	slog.Debugf("new weicLoginVerifier success")
+	s.weicLoginVerifier = wlv
+
+	slog.Debugf("new weicLoginCrypt...")
+	cry := &crypt.XOR{
+		Seed:   config.Client.Auth.XorKey,
+		XorKey: crypt.SeedNewXorKey(config.Client.Auth.XorKey),
+	}
+	slog.Debugf("weicLoginCrypt xor key hex:%s", hex.EncodeToString(cry.XorKey))
+	s.weicLoginCrypt = cry
 
 	slog.Debugf("new client service success")
 	return s, nil
@@ -95,19 +117,19 @@ func (svr *Service) cycleLoginWeis() {
 
 func (svr *Service) loginWeis() error {
 	slog.Debugf("new weisConn...")
-	conn, err := net.Dial(config.Client.WeisNet.Network, config.Client.WeisNet.Address)
+	conn, err := net.Dial(config.Client.ServerNetwork, config.Client.ServerAddr)
 	if err != nil {
 		return err
 	}
-	conn.SetCrypt(config.Client.WeicLogin.Crypt)
-	slog.Debugf("network:%s address:%s new weisConn success", config.Client.WeisNet.Network, config.Client.WeisNet.Address)
+	conn.SetCrypt(svr.weicLoginCrypt)
+	slog.Debugf("network:%s address:%s new weisConn success", config.Client.ServerNetwork, config.Client.ServerAddr)
 
 	// login
 	timestamp := time.Now().UnixNano()
 	loginReq := &msg.CSLoginReq{
 		Version:   env.Version,
 		Timestamp: timestamp,
-		LoginKey:  config.Client.Auth.Verifier.SetVerifyLogin(timestamp),
+		LoginKey:  svr.weicLoginVerifier.SetVerifyLogin(timestamp),
 	}
 
 	slog.Debugf("token:%s start login...", loginReq.LoginKey)

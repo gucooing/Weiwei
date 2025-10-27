@@ -34,7 +34,8 @@ import (
 )
 
 var (
-	ErrRepeatControl = errors.New("repeat control")
+	ErrRepeatControl  = errors.New("repeat control")
+	ErrNewControlAuth = errors.New("new control auth")
 )
 
 type ControlManager struct {
@@ -111,7 +112,7 @@ type Control struct {
 	workVerifier auth.Verifier
 }
 
-func NewControl(conn net.Conn) *Control {
+func NewControl(conn net.Conn) (*Control, error) {
 	c := &Control{
 		conn:       conn,
 		runId:      util.NewRunId(),
@@ -133,11 +134,15 @@ func NewControl(conn net.Conn) *Control {
 		ConnMaxLifetime: 24 * time.Hour,
 	})
 
-	c.workVerifier = auth.NewToken(strconv.FormatInt(c.seed, 10))
+	wwl, err := auth.NewToken(strconv.FormatInt(c.seed, 10))
+	if err != nil {
+		return nil, ErrNewControlAuth
+	}
+	c.workVerifier = wwl
 
 	slog.Infof("addr:%s runId:%v new weic",
 		c.conn.RemoteAddr().String(), c.runId)
-	return c
+	return c, nil
 }
 
 func (c *Control) Start() {

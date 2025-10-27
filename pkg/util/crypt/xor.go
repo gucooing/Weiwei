@@ -22,9 +22,13 @@ import (
 	"github.com/gucooing/weiwei/pkg/util"
 )
 
+var (
+	xorKeySize int = 4096
+)
+
 type XOR struct {
-	seed   int64
-	xorKey []byte
+	Seed   int64
+	XorKey []byte
 }
 
 func newCryptXor(conf interface{}) (Crypt, error) {
@@ -33,22 +37,27 @@ func newCryptXor(conf interface{}) (Crypt, error) {
 	if !ok {
 		return x, errors.New("conf err")
 	}
-	x.seed = seed
-	x.xorKey = make([]byte, 4096)
-	r := rand.New(rand.NewSource(x.seed))
-	for i := 0; i < 4096>>3; i++ {
-		binary.BigEndian.PutUint64(x.xorKey[i<<3:], r.Uint64())
-	}
+	x.Seed = seed
+	x.XorKey = SeedNewXorKey(seed)
 
 	return x, nil
 }
 
+func SeedNewXorKey(seed int64) []byte {
+	xorKey := make([]byte, xorKeySize)
+	r := rand.New(rand.NewSource(seed))
+	for i := 0; i < 4096>>3; i++ {
+		binary.BigEndian.PutUint64(xorKey[i<<3:], r.Uint64())
+	}
+	return xorKey
+}
+
 func (x *XOR) Encryption(data []byte) (encrypted []byte, err error) {
-	util.Xor(data, x.xorKey)
+	util.Xor(data, x.XorKey)
 	return data, nil
 }
 
 func (x *XOR) Decrypt(encrypted []byte) (decrypted []byte, err error) {
-	util.Xor(encrypted, x.xorKey)
+	util.Xor(encrypted, x.XorKey)
 	return encrypted, nil
 }

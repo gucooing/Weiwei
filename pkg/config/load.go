@@ -19,7 +19,6 @@ import (
 	"os"
 
 	"github.com/goccy/go-yaml"
-	"github.com/pelletier/go-toml/v2"
 
 	v1 "github.com/gucooing/weiwei/pkg/config/v1"
 )
@@ -30,9 +29,6 @@ var (
 )
 
 func LoadConfig(b []byte, c any) error {
-	if err := toml.Unmarshal(b, c); err == nil {
-		return err
-	}
 	if err := yaml.Unmarshal(b, c); err == nil {
 		return err
 	}

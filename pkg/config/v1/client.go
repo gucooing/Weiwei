@@ -16,27 +16,22 @@ package v1
 
 import (
 	"errors"
-
-	"github.com/gucooing/weiwei/pkg/util"
-	"github.com/gucooing/weiwei/pkg/util/crypt"
 )
 
 type ClientConfig struct {
-	Log       *Log        `json:"log" yaml:"log" toml:"log"`
-	Auth      *AuthConfig `json:"auth" toml:"auth" yaml:"auth"`
-	WeisNet   *Net        `json:"weisNet" yaml:"weisNet" toml:"weisNet"`
-	WeicLogin *WeicLogin  `json:"weicLogin" yaml:"weicLogin" toml:"weicLogin"`
+	Log           *Log        `json:"log" yaml:"log" toml:"log"`
+	ServerNetwork string      `json:"serverNetwork" yaml:"serverNetwork" toml:"serverNetwork"`
+	ServerAddr    string      `json:"serverAddr" yaml:"serverAddr" toml:"serverAddr"`
+	Auth          *AuthConfig `json:"auth" toml:"auth" yaml:"auth"`
 }
 
 func (c *ClientConfig) Init() error {
 	if c == nil {
 		return errors.New("config is nil")
 	}
+
 	c.Log.Init()
 	c.Auth.Init()
-	c.WeicLogin = util.EmptyDefault(c.WeicLogin, &WeicLogin{CryptType: string(crypt.CryptTypeNone)})
-	c.WeisNet.Init()
-	c.WeicLogin.Init()
 
 	return nil
 }

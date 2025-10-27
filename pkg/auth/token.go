@@ -28,11 +28,11 @@ type Token struct {
 	Token string
 }
 
-func NewToken(token string) *Token {
+func NewToken(token string) (*Token, error) {
 	t := &Token{
 		Token: token,
 	}
-	return t
+	return t, nil
 }
 
 func (t *Token) SetVerifyLogin(timestamp int64) string {

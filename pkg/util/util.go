@@ -15,6 +15,7 @@
 package util
 
 import (
+	"strconv"
 	"sync/atomic"
 )
 
@@ -38,4 +39,9 @@ var (
 
 func NewRunId() int64 {
 	return atomic.AddInt64(&runId, 1)
+}
+
+func S2I64(msg string) int64 {
+	ms, _ := strconv.ParseInt(msg, 10, 64)
+	return ms
 }

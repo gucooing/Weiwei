@@ -14,7 +14,26 @@
 
 package auth
 
+import (
+	"errors"
+
+	v1 "github.com/gucooing/weiwei/pkg/config/v1"
+)
+
+var (
+	ErrUnknownAuthMethod = errors.New("unknown auth method")
+)
+
 type Verifier interface {
 	SetVerifyLogin(timestamp int64) string
 	VerifyLogin(timestamp int64, loginKey string) error
+}
+
+func NewVerifier(method v1.AuthMethod, token string) (Verifier, error) {
+	switch method {
+	case v1.AuthMethodToken:
+		return NewToken(token)
+	default:
+		return nil, ErrUnknownAuthMethod
+	}
 }
