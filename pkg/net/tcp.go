@@ -69,19 +69,18 @@ var (
 	tcpLenSize = 4
 )
 
-func (c *TCPConn) Read() (n int, b []byte, err error) {
+func (c *TCPConn) Read() (n int, bin []byte, err error) {
 	lenBytes := make([]byte, tcpLenSize)
 	if _, err = io.ReadFull(c.buf, lenBytes); err != nil {
 		return 0, nil, err
 	}
 	headLen := binary.BigEndian.Uint32(lenBytes)
 
-	buf := c.getBuffer(int(headLen))
-	defer c.putBuffer(buf)
+	buf := make([]byte, int(headLen))
 	if _, err = io.ReadFull(c.buf, buf); err != nil {
 		return 0, nil, err
 	}
-	b, err = c.BaseRead(buf)
+	bin, err = c.BaseRead(buf)
 	if err != nil {
 		return
 	}
